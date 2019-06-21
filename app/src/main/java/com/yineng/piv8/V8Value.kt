@@ -1,28 +1,8 @@
 package com.yineng.piv8
 
-import javax.print.DocFlavor.STRING
-import jdk.nashorn.api.scripting.ScriptObjectMirror.isUndefined
-import jdk.nashorn.api.scripting.ScriptObjectMirror.isUndefined
-import javax.swing.UIManager.put
-import javax.crypto.spec.DESKeySpec.isWeak
-import jdk.nashorn.api.scripting.ScriptObjectMirror.isUndefined
-import jdk.nashorn.api.scripting.ScriptObjectMirror.isUndefined
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-abstract class V8Value : Releasable{
+abstract class V8Value(v8: V8?) : Releasable{
 
     val NULL = 0
     val UNKNOWN = 0
@@ -51,8 +31,7 @@ abstract class V8Value : Releasable{
     protected var objectHandle: Long = 0
     protected var released = true
 
-
-    constructor(v8: V8?){
+    init {
         if (v8 == null){
             this.v8 = this as V8
         } else {
@@ -133,7 +112,7 @@ abstract class V8Value : Releasable{
         return v8.getType(v8.getV8RuntimePtr(), objectHandle)
     }
 
-    fun twin(): V8Value {
+    open fun twin(): V8Value {
         if (isUndefined()) {
             return this
         }

@@ -10,3 +10,7 @@ std::string util::jstring2string(JNIEnv *env, jstring jStr){
     env->ReleaseStringUTFChars(jStr, cstr);
     return str;
 }
+
+jboolean ToJBool(bool value) {
+    return value ? JNI_TRUE : JNI_FALSE;
+}

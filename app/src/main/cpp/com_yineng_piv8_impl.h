@@ -630,46 +630,6 @@ JNIEXPORT jint JNICALL Java_com_yineng_piv8_V8__1arrayGetStrings__JJIILjava_lang
 
 /*
  * Class:     com_yineng_piv8_V8
- * Method:    _arrayGetIntegers
- * Signature: (JJII[I)I
- */
-JNIEXPORT jint JNICALL Java_com_yineng_piv8_V8__1arrayGetIntegers__JJII_3I
-        (JNIEnv *, jobject, jlong, jlong, jint, jint, jintArray);
-
-/*
- * Class:     com_yineng_piv8_V8
- * Method:    _arrayGetDoubles
- * Signature: (JJII[D)I
- */
-JNIEXPORT jint JNICALL Java_com_yineng_piv8_V8__1arrayGetDoubles__JJII_3D
-        (JNIEnv *, jobject, jlong, jlong, jint, jint, jdoubleArray);
-
-/*
- * Class:     com_yineng_piv8_V8
- * Method:    _arrayGetBooleans
- * Signature: (JJII[Z)I
- */
-JNIEXPORT jint JNICALL Java_com_yineng_piv8_V8__1arrayGetBooleans__JJII_3Z
-        (JNIEnv *, jobject, jlong, jlong, jint, jint, jbooleanArray);
-
-/*
- * Class:     com_yineng_piv8_V8
- * Method:    _arrayGetBytes
- * Signature: (JJII[B)I
- */
-JNIEXPORT jint JNICALL Java_com_yineng_piv8_V8__1arrayGetBytes__JJII_3B
-        (JNIEnv *, jobject, jlong, jlong, jint, jint, jbyteArray);
-
-/*
- * Class:     com_yineng_piv8_V8
- * Method:    _arrayGetStrings
- * Signature: (JJII[Ljava/lang/String;)I
- */
-JNIEXPORT jint JNICALL Java_com_yineng_piv8_V8__1arrayGetStrings__JJII_3Ljava_lang_String_2
-        (JNIEnv *, jobject, jlong, jlong, jint, jint, jobjectArray);
-
-/*
- * Class:     com_yineng_piv8_V8
  * Method:    _initNewV8ArrayBuffer
  * Signature: (JI)J
  */
@@ -828,28 +788,5 @@ JNIEXPORT jlong JNICALL Java_com_yineng_piv8_V8__1getGlobalObject
 JNIEXPORT jlong JNICALL Java_com_yineng_piv8_V8__1getBuildID
         (JNIEnv *, jobject);
 
-/*
- * Class:     com_yineng_piv8_V8
- * Method:    _pumpMessageLoop
- * Signature: (J)Z
- */
-JNIEXPORT jboolean JNICALL Java_com_yineng_piv8_V8__1pumpMessageLoop
-        (JNIEnv *, jclass, jlong);
-
-/*
- * Class:     com_yineng_piv8_V8
- * Method:    _isRunning
- * Signature: (J)Z
- */
-JNIEXPORT jboolean JNICALL Java_com_yineng_piv8_V8__1isRunning
-        (JNIEnv *, jclass, jlong);
-
-/*
- * Class:     com_yineng_piv8_V8
- * Method:    _isNodeCompatible
- * Signature: ()Z
- */
-JNIEXPORT jboolean JNICALL Java_com_yineng_piv8_V8__1isNodeCompatible
-        (JNIEnv *, jclass);
 
 }

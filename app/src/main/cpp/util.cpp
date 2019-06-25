@@ -11,6 +11,3 @@ std::string util::jstring2string(JNIEnv *env, jstring jStr){
     return str;
 }
 
-jboolean ToJBool(bool value) {
-    return value ? JNI_TRUE : JNI_FALSE;
-}

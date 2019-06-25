@@ -662,14 +662,7 @@ public class V8Object extends V8Value {
         public void close() {
         }
 
-        /*
-         * (non-Javadoc)
-         * @see com.eclipsesource.v8.V8Value#release()
-         */
-        @Deprecated
-        @Override
-        public void release() {
-        }
+
 
         /*
          * (non-Javadoc)

@@ -32,7 +32,7 @@ include_directories(
 
 
 add_library( # Sets the name of the library.
-        piv8
+        native-lib
 
         # Sets the library as a shared library.
         SHARED
@@ -88,7 +88,7 @@ add_library( # Sets the name of the library.
 set(NATIVES_BLOB_INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/include)
 
 set_target_properties(
-        piv8
+        native-lib
         PROPERTIES LINK_FLAGS -Wl,--allow-multiple-definition -Wl,--exclude-libs=ALL -Wl,--gc-sections
         INTERFACE_INCLUDE_DIRECTORIES NATIVES_BLOB_INCLUDE_DIRECTORIES
 )
@@ -107,25 +107,25 @@ find_library( # Sets the name of the path variable.
         # you want CMake to locate.
         log )
 #target_link_libraries(native-lib ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libzip.a)
-target_link_libraries(piv8 ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libv8_base.a)
-target_link_libraries(piv8 ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libv8_external_snapshot.a)
-target_link_libraries(piv8 ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libv8_init.a)
-target_link_libraries(piv8 ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libv8_initializers.a)
-target_link_libraries(piv8 ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libv8_libplatform.a)
-target_link_libraries(piv8 ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libv8_libsampler.a)
-target_link_libraries(piv8 ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libv8_libbase.a)
+target_link_libraries(native-lib ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libv8_base.a)
+target_link_libraries(native-lib ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libv8_external_snapshot.a)
+target_link_libraries(native-lib ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libv8_init.a)
+target_link_libraries(native-lib ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libv8_initializers.a)
+target_link_libraries(native-lib ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libv8_libplatform.a)
+target_link_libraries(native-lib ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libv8_libsampler.a)
+target_link_libraries(native-lib ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libv8_libbase.a)
 
-target_link_libraries(piv8 ${PROJECT_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libc++.a)
-target_link_libraries(piv8 ${PROJECT_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libc++abi.a)
+target_link_libraries(native-lib ${PROJECT_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libc++.a)
+target_link_libraries(native-lib ${PROJECT_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libc++abi.a)
 
 if("${ANDROID_ABI}" MATCHES "armeabi-v7a" OR "${ANDROID_ABI}" MATCHES "x86")
     # On API Level 19 and lower we need to link with android_support
     # because it contains some implementation of functions such as "strtoll" and "strtoul"
-    target_link_libraries(piv8 ${ANDROID_NDK_ROOT}/sources/cxx-stl/llvm-libc++/libs/${ANDROID_ABI}/libandroid_support.a)
+    target_link_libraries(native-lib ${ANDROID_NDK_ROOT}/sources/cxx-stl/llvm-libc++/libs/${ANDROID_ABI}/libandroid_support.a)
 endif()
 
 target_link_libraries( # Specifies the target library.
-        piv8
+        native-lib
         # Links the target library to the log library
         # included in the NDK.
         ${log-lib}

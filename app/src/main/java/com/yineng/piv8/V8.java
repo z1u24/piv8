@@ -638,14 +638,6 @@ public class V8 extends V8Object {
         return null;
     }
 
-    boolean pumpMessageLoop() {
-        return _pumpMessageLoop(v8RuntimePtr);
-    }
-
-    boolean isRunning() {
-        return _isRunning(v8RuntimePtr);
-    }
-
     protected long initNewV8Object(final long v8RuntimePtr) {
         return _initNewV8Object(v8RuntimePtr);
     }
@@ -1203,19 +1195,6 @@ public class V8 extends V8Object {
     private native static boolean _pumpMessageLoop(final long v8RuntimePtr);
 
     private native static boolean _isRunning(final long v8RuntimePtr);
-
-//    private native static boolean _isNodeCompatible();
-//
-//    public static boolean isNodeCompatible() {
-//        if (!nativeLibraryLoaded) {
-//            synchronized (lock) {
-//                if (!nativeLibraryLoaded) {
-//                    load();
-//                }
-//            }
-//        }
-//        return _isNodeCompatible();
-//    }
 
     void addObjRef(final V8Value reference) {
         objectReferences++;

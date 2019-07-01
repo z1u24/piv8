@@ -1,5 +1,6 @@
 package com.yineng.piv8;
 
+import android.app.Activity;
 import com.yineng.piv8.utils.V8Executor;
 import com.yineng.piv8.utils.V8Map;
 import com.yineng.piv8.utils.V8Runnable;
@@ -27,6 +28,8 @@ public class V8 extends V8Object {
     private Map<Long, MethodDescriptor>  functionRegistry        = new HashMap<Long, MethodDescriptor>();
     private LinkedList<ReferenceHandler> referenceHandlers       = new LinkedList<ReferenceHandler>();
     private LinkedList<V8Runnable>       releaseHandlers         = new LinkedList<V8Runnable>();
+
+    private static V8WebServer           v8WebServer             = null;
 
     private static boolean               nativeLibraryLoaded     = false;
     private static Error                 nativeLoadError         = null;
@@ -85,6 +88,8 @@ public class V8 extends V8Object {
         }
         return runtime;
     }
+
+
 
     public void addReferenceHandler(final ReferenceHandler handler) {
         referenceHandlers.add(0, handler);
@@ -1192,9 +1197,13 @@ public class V8 extends V8Object {
 
     private native long _getBuildID();
 
-    private native static boolean _pumpMessageLoop(final long v8RuntimePtr);
+    private native void _connect(final long v8RuntimePtr ,Object connection );
 
-    private native static boolean _isRunning(final long v8RuntimePtr);
+    private native void _disconnect(final long v8RuntimePtr);
+
+    private native void _dispatchMessage(final long v8RuntimePtr,String message);
+
+    private native void _initDebugger(final long v8RuntimePtr);
 
     void addObjRef(final V8Value reference) {
         objectReferences++;
@@ -1210,5 +1219,33 @@ public class V8 extends V8Object {
         objectReferences--;
     }
 
+    void send(Object connection, String message){
+        V8WebServer.send(connection, message);
+    }
+
+    void sendToDevToolsConsole(Object connection, String message, String level){
+        V8WebServer.sendToDevToolsConsole(connection, message, level);
+    }
+
+    //chrome debugger
+    void connect(Object connction){
+        _connect(v8RuntimePtr,connction);
+    }
+
+    void disconnect(){
+        _disconnect(v8RuntimePtr);
+    }
+
+    void dispatchMessage(String message){
+        _dispatchMessage(v8RuntimePtr,message);
+    }
+
+    //打开debuuger
+    public void startDebugger(Activity ctx){
+        if(v8WebServer == null){
+            _initDebugger(v8RuntimePtr);
+            v8WebServer = new V8WebServer(ctx,this);
+        }
+    }
 
 }

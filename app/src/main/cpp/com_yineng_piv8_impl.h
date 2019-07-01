@@ -789,4 +789,17 @@ JNIEXPORT jlong JNICALL Java_com_yineng_piv8_V8__1getBuildID
         (JNIEnv *, jobject);
 
 
+JNIEXPORT void JNICALL Java_com_yineng_piv8_V8__1connect
+        (JNIEnv *, jobject, jlong, jobject);
+
+JNIEXPORT void JNICALL Java_com_yineng_piv8_V8__1disconnect
+        (JNIEnv *, jobject, jlong );
+
+JNIEXPORT void JNICALL Java_com_yineng_piv8_V8__1dispatchMessage
+        (JNIEnv *, jobject, jlong,jstring);
+
+JNIEXPORT void JNICALL Java_com_yineng_piv8_V8__1initDebugger
+        (JNIEnv *env, jobject , jlong);
+
 }
+

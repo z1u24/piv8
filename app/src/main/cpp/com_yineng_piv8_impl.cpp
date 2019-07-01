@@ -12,6 +12,7 @@
 #include "src/inspector/v8-inspector-impl.h"
 #include "src/inspector/v8-inspector-session-impl.h"
 #include "util.h"
+#include "log.h"
 
 using namespace std;
 using namespace v8_inspector;
@@ -39,6 +40,50 @@ public:
     jthrowable pendingException;
 };
 
+//chrome debugger
+
+class piv8_inspector : V8InspectorClient, V8Inspector::Channel {
+public:
+    static piv8_inspector* getInstance();
+    void init(jlong v8ptr,Isolate *isolate);
+    void connect(JNIEnv *env_, jobject connection);
+//    void scheduleBreak();
+    void createInspectorSession();
+    void disconnect(JNIEnv *env_,Isolate *isolate);
+
+    void doDispatchMessage(v8::Isolate* isolate, const std::string& message);
+
+    void sendResponse(int callId, std::unique_ptr<StringBuffer> message) override;
+    void sendNotification(const std::unique_ptr<StringBuffer> message) override;
+    void flushProtocolNotifications() override;
+
+//    void runMessageLoopOnPause(int contextGroupId) override;
+//    void quitMessageLoopOnPause() override;
+//    void runIfWaitingForDebugger(int contextGroupId) override;
+//    v8::Local<v8::Context> ensureDefaultContextInGroup(int contextGroupId) override;
+
+//    static void sendToFrontEndCallback(const v8::FunctionCallbackInfo<v8::Value>& args);
+//    static void consoleLogCallback(const std::string& message, const std::string& logLevel);
+
+    std::unique_ptr<V8Inspector> inspector_;
+    bool isConnected;
+
+private:
+    static piv8_inspector* instance;
+    static int contextGroupId;
+
+    std::unique_ptr<V8InspectorSession> session_;
+    jobject connection;
+    jlong v8RuntimePtr;
+//    bool running_nested_loop_;
+//    bool terminated_;
+
+};
+
+piv8_inspector* piv8_inspector::instance = nullptr;
+int piv8_inspector::contextGroupId = 1;
+
+
 v8::Platform* v8Platform;
 
 const char* ToCString(const String::Utf8Value& value) {
@@ -65,6 +110,8 @@ jclass doubleCls = NULL;
 jclass booleanCls = NULL;
 jclass errorCls = NULL;
 jclass unsupportedOperationExceptionCls = NULL;
+jmethodID v8InspectorSend = NULL;
+jmethodID v8InspectorSendToDevToolsConsole = NULL;
 jmethodID v8ArrayInitMethodID = NULL;
 jmethodID v8TypedArrayInitMethodID = NULL;
 jmethodID v8ArrayBufferInitMethodID = NULL;
@@ -156,15 +203,18 @@ Local<String> createV8String(JNIEnv *env, Isolate *isolate, jstring &string) {
 Handle<Value> getValueWithKey(JNIEnv* env, Isolate* isolate, jlong &v8RuntimePtr, jlong &objectHandle, jstring &key) {
     Handle<Object> object = Local<Object>::New(isolate, *reinterpret_cast<Persistent<Object>*>(objectHandle));
     Local<String> v8Key = createV8String(env, isolate, key);
-    return object->Get(v8Key);
+    return object->Get(isolate->GetCurrentContext(),v8Key).ToLocalChecked();
 }
 
-void addValueWithKey(JNIEnv* env, Isolate* isolate, jlong &v8RuntimePtr, jlong &objectHandle, jstring &key, Handle<Value> value) {
+void addValueWithKey(JNIEnv* env, Isolate* isolate, jlong &v8RuntimePtr, jlong objectHandle, jstring key, Handle<Value> value) {
     Handle<Object> object = Local<Object>::New(isolate, *reinterpret_cast<Persistent<Object>*>(objectHandle));
     const uint16_t* unicodeString_key = env->GetStringChars(key, NULL);
     int length = env->GetStringLength(key);
     Local<String> v8Key = String::NewFromTwoByte(isolate, unicodeString_key, String::NewStringType::kNormalString, length);
-    object->Set(v8Key, value);
+    v8::String::Utf8Value serverKeyUtf8(isolate,v8Key);
+    std::string serverKeystd = std::string(*serverKeyUtf8);
+    LOGV("%s",serverKeystd.c_str());
+    object->Set(isolate->GetCurrentContext(),v8Key, value).ToChecked();
     env->ReleaseStringChars(key, unicodeString_key);
 }
 
@@ -203,7 +253,10 @@ bool compileScript(Isolate *isolate, jstring &jscript, JNIEnv *env, jstring jscr
     if (jscriptName != NULL) {
         scriptOriginPtr = createScriptOrigin(env, isolate, jscriptName, jlineNumber);
     }
-    script = Script::Compile(isolate->GetCurrentContext(),source, scriptOriginPtr).ToLocalChecked();
+    MaybeLocal<Script> spt = Script::Compile(isolate->GetCurrentContext(),source, scriptOriginPtr);
+    if(!spt.IsEmpty()){
+        script = spt.ToLocalChecked();
+    }
     if (scriptOriginPtr != NULL) {
         delete(scriptOriginPtr);
     }
@@ -621,6 +674,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
     unsupportedOperationExceptionCls = (jclass)env->NewGlobalRef((env)->FindClass("java/lang/UnsupportedOperationException"));
 
     // Get all method IDs
+
     v8ArrayInitMethodID = env->GetMethodID(v8ArrayCls, "<init>", "(Lcom/yineng/piv8/V8;)V");
     v8TypedArrayInitMethodID = env->GetMethodID(v8TypedArrayCls, "<init>", "(Lcom/yineng/piv8/V8;)V");
     v8ArrayBufferInitMethodID = env->GetMethodID(v8ArrayBufferCls, "<init>", "(Lcom/yineng/piv8/V8;Ljava/nio/ByteBuffer;)V");
@@ -647,11 +701,88 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
     booleanInitMethodID = env->GetMethodID(booleanCls, "<init>", "(Z)V");
     v8FunctionInitMethodID = env->GetMethodID(v8FunctionCls, "<init>", "(Lcom/yineng/piv8/V8;)V");
     v8ObjectInitMethodID = env->GetMethodID(v8ObjectCls, "<init>", "(Lcom/yineng/piv8/V8;)V");
+    v8InspectorSend = env->GetMethodID(v8cls,"send","(Ljava/lang/Object;Ljava/lang/String;)V");
+    v8InspectorSendToDevToolsConsole = env->GetMethodID(v8cls,"sendToDevToolsConsole","(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;)V");
+
+
 
     return JNI_VERSION_1_6;
 
 }
 
+piv8_inspector* piv8_inspector::getInstance(){
+    if(piv8_inspector::instance == NULL){
+        instance = new piv8_inspector();
+    }
+    return instance;
+}
+
+void piv8_inspector::init(jlong v8ptr,Isolate *isolate) {
+    LOGV("init inspector start");
+    this->v8RuntimePtr = v8ptr;
+    inspector_ = V8Inspector::create(isolate,getInstance());
+    inspector_->contextCreated(v8_inspector::V8ContextInfo(isolate->GetCurrentContext(),piv8_inspector::contextGroupId,v8_inspector::StringView()));
+    this->createInspectorSession();
+    this->isConnected = false;
+}
+
+void piv8_inspector::connect(JNIEnv *env_,jobject connection) {
+    this->connection = env_->NewGlobalRef(connection);
+    this->isConnected = true;
+}
+
+void piv8_inspector::disconnect(JNIEnv *env_,Isolate *isolate) {
+    if (this->connection == nullptr || this->isConnected == false) {
+        return;
+    }
+    session_->resume();
+    session_.reset();
+    env_->DeleteGlobalRef(this->connection);
+    this->connection = nullptr;
+    this->isConnected = false;
+    this->createInspectorSession();
+}
+
+void piv8_inspector::createInspectorSession() {
+    session_ = inspector_->connect(piv8_inspector::contextGroupId,this, v8_inspector::StringView());
+}
+
+
+void piv8_inspector::doDispatchMessage(v8::Isolate *isolate, const std::string &message) {
+    if (session_ == nullptr) {
+        return;
+    }
+    const v8_inspector::String16 msg = v8_inspector::String16::fromUTF8(message.c_str(), message.length());
+    v8_inspector::StringView message_view = toStringView(msg);
+    session_->dispatchProtocolMessage(message_view);
+}
+
+static v8_inspector::String16 ToString16(const v8_inspector::StringView& string) {
+    if (string.is8Bit()) {
+        return v8_inspector::String16(reinterpret_cast<const char*>(string.characters8()), string.length());
+    }
+    return v8_inspector::String16(reinterpret_cast<const uint16_t*>(string.characters16()), string.length());
+}
+
+void piv8_inspector::flushProtocolNotifications() {
+
+}
+
+void piv8_inspector::sendNotification(const std::unique_ptr<StringBuffer> message) {
+    if (this->isConnected == false || this->connection == nullptr) {
+        return;
+    }
+    JNIEnv * env;
+    getJNIEnv(env);
+    v8_inspector::String16 msg = ToString16(message->string());
+    jstring jmsg = env->NewStringUTF(msg.utf8().c_str());
+    env->CallVoidMethod(reinterpret_cast<V8Runtime*>(v8RuntimePtr)->v8,v8InspectorSend,this->connection,jmsg);
+
+}
+
+void piv8_inspector::sendResponse(int callId, std::unique_ptr<StringBuffer> message) {
+    sendNotification(std::move(message));
+}
 
 ShellArrayBufferAllocator array_buffer_allocator;
 
@@ -1702,7 +1833,8 @@ JNIEXPORT void JNICALL Java_com_yineng_piv8_V8__1terminateExecution(JNIEnv * env
 
 JNIEXPORT jlong JNICALL Java_com_yineng_piv8_V8__1getGlobalObject(JNIEnv *env, jobject, jlong v8RuntimePtr){
     Isolate* isolate = SETUP(env, v8RuntimePtr, 0);
-    Local<Object> obj = Object::New(isolate);
+    Local<Object> obj = isolate->GetCurrentContext()->Global();
+//    Local<Object> obj = Object::New(isolate);
     reinterpret_cast<V8Runtime*>(v8RuntimePtr)->globalObject->Reset(isolate,obj);
     return reinterpret_cast<jlong>(reinterpret_cast<V8Runtime*>(v8RuntimePtr)->globalObject);
 }
@@ -1907,47 +2039,28 @@ jobject getResult(JNIEnv *env, jobject &v8, jlong v8RuntimePtr, Isolate* isolate
     return NULL;
 }
 
+JNIEXPORT void JNICALL Java_com_yineng_piv8_V8__1connect(JNIEnv *env, jobject, jlong v8RuntimePtr, jobject connection){
+    Isolate *isolate = SETUP(env,v8RuntimePtr,);
+    piv8_inspector::getInstance()->connect(env,connection);
+}
 
-//chrome debugger
 
-class piv8_inspector : V8InspectorClient, V8Inspector::Channel {
-public:
-    static piv8_inspector* getInstance;
-    void init();
-    void connect(jobject connection);
-    void scheduleBreak();
-    void createInspectorSession(v8::Isolate* isolate, const v8::Local<v8::Context>& context);
-    void disconnect();
+JNIEXPORT void JNICALL Java_com_yineng_piv8_V8__1disconnect(JNIEnv *env, jobject, jlong v8RuntimePtr){
+    Isolate *isolate = SETUP(env,v8RuntimePtr,);
+    piv8_inspector::getInstance()->disconnect(env,isolate);
+}
 
-    void dispatchMessage(const std::string& message);
-    void doDispatchMessage(v8::Isolate* isolate, const std::string& message);
 
-    void sendResponse(int callId, std::unique_ptr<StringBuffer> message) override;
-    void sendNotification(const std::unique_ptr<StringBuffer> message) override;
-    void flushProtocolNotifications() override;
+JNIEXPORT void JNICALL Java_com_yineng_piv8_V8__1dispatchMessage(JNIEnv *env, jobject, jlong v8RuntimePtr,jstring message){
+    Isolate *isolate = SETUP(env,v8RuntimePtr,);
+    std::string msg = util::jstring2string(env,message);
+    piv8_inspector::getInstance()->doDispatchMessage(isolate,msg);
+}
 
-    void runMessageLoopOnPause(int contextGroupId) override;
-    void quitMessageLoopOnPause() override;
-    void runIfWaitingForDebugger(int contextGroupId) override;
-    v8::Local<v8::Context> ensureDefaultContextInGroup(int contextGroupId) override;
 
-    static void sendToFrontEndCallback(const v8::FunctionCallbackInfo<v8::Value>& args);
-    static void consoleLogCallback(const std::string& message, const std::string& logLevel);
-
-private:
-    static piv8_inspector* instance;
-    static jobject inspectorObject;
-    static jmethodID sendMethod;
-    static jmethodID sendToDevToolsConsoleMethod;
-    static int contextGroupId;
-
-    V8Runtime *runtime;
-    std::unique_ptr<V8InspectorSession> session_;
-    jobject connection;
-    bool running_nested_loop_;
-    bool terminated_;
-
-};
-
+JNIEXPORT void JNICALL Java_com_yineng_piv8_V8__1initDebugger(JNIEnv *env, jobject , jlong v8RuntimePtr){
+    Isolate *isolate = SETUP(env,v8RuntimePtr,);
+    piv8_inspector::getInstance()->init(v8RuntimePtr,isolate);
+}
 
 

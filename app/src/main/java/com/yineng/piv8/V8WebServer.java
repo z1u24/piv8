@@ -1,6 +1,8 @@
 package com.yineng.piv8;
 
 import android.app.Activity;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import okhttp3.Response;
 import okhttp3.WebSocket;
@@ -18,12 +20,13 @@ import java.net.InetAddress;
 public class V8WebServer {
 
     private static String TAG = "piv8";
-    private Activity ctx;
     private V8 runtime;
     private static int port = 41868;
+    private Handler mainHandler;
 
-    public V8WebServer(Activity ctx, V8 v8){
-        this.ctx = ctx; this.runtime = v8;
+    public V8WebServer(V8 v8){
+        this.runtime = v8;
+        mainHandler = new Handler(Looper.getMainLooper());
         createWebSocketServer();
     }
 
@@ -37,7 +40,7 @@ public class V8WebServer {
                     public void onOpen(final WebSocket webSocket, Response response) {
                         super.onOpen(webSocket, response);
                         Log.d(TAG,"mock webServer onOpen");
-                        ctx.runOnUiThread(new Runnable() {
+                        mainHandler.post(new Runnable() {
                             @Override
                             public void run() {
                                 runtime.disconnect();
@@ -50,7 +53,7 @@ public class V8WebServer {
                     public void onMessage(WebSocket webSocket, final String text) {
                         super.onMessage(webSocket, text);
                         Log.d(TAG,"mock webServer onMessage: " + text);
-                        ctx.runOnUiThread(new Runnable() {
+                        mainHandler.post(new Runnable() {
                             @Override
                             public void run() {
                                 runtime.dispatchMessage(text);
@@ -74,7 +77,7 @@ public class V8WebServer {
                     public void onClosed(WebSocket webSocket, int code, String reason) {
                         super.onClosed(webSocket, code, reason);
                         Log.d(TAG,"mock webServer onClosed code = "+ code + "; reason = " + reason);
-                        ctx.runOnUiThread(new Runnable() {
+                        mainHandler.post(new Runnable() {
                             @Override
                             public void run() {
                                 runtime.disconnect();

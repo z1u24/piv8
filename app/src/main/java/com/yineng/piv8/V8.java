@@ -1241,10 +1241,10 @@ public class V8 extends V8Object {
     }
 
     //打开debuuger
-    public void startDebugger(Activity ctx){
+    public void startDebugger(){
         if(v8WebServer == null){
             _initDebugger(v8RuntimePtr);
-            v8WebServer = new V8WebServer(ctx,this);
+            v8WebServer = new V8WebServer(this);
         }
     }
 

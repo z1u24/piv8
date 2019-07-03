@@ -1,5 +1,6 @@
 package com.yineng.piv8
 
+import android.content.Context
 import android.database.SQLException
 import android.database.sqlite.SQLiteDatabase
 import android.os.Handler
@@ -8,15 +9,17 @@ import org.json.JSONObject
 import java.io.File
 import java.util.concurrent.Executors
 
-class piv8DB( private val v8:V8) {
+class piv8DB( private val ctx: Context,private val v8:V8, private var fileName: String = "") {
 
     init {
-        val file = File("/data/data/com.yineng.piv8/databases/")
+        fileName = "/data/data/${ctx.packageName}/databases/"
+        val file = File(fileName)
         if(!file.exists()){
             file.mkdirs()
         }
     }
-    val db : SQLiteDatabase = SQLiteDatabase.openOrCreateDatabase("/data/data/com.yineng.piv8/databases/piv8.db", null)
+
+    val db : SQLiteDatabase = SQLiteDatabase.openOrCreateDatabase("${fileName}/piv8.db", null)
     var mainHandler = Handler(Looper.getMainLooper())
     val sExecutorService = Executors.newSingleThreadExecutor()
 

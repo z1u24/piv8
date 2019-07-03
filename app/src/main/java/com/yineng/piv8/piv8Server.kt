@@ -6,11 +6,13 @@ import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import android.support.v4.app.NotificationCompat.getExtras
 import android.os.Bundle
-
+import android.os.Handler
+import android.os.Looper
+import android.util.Base64
+import org.json.JSONObject
+import java.io.*
 
 
 class piv8Service: Service() {
@@ -100,6 +102,9 @@ class JSVMManager private constructor(){
         store.registerJavaMethod(piv8db,"write","write",arrayOf<Class<*>>(String::class.java,String::class.java,String::class.java,V8Function::class.java,V8Function::class.java,V8Function::class.java))
 
 
+        val jsBootManager = JSBootManager(ctx!!,runtime!!)
+        jsBootManager.initManager()
+
 
         val base64js = getLocalScript("base64js.min.js")
         runtime!!.executeScript(base64js!!)
@@ -155,21 +160,137 @@ class JSVMManager private constructor(){
 }
 
 
-class JSBootManager(private val ctx: Context, private val v8: V8){
+class JSBootManager(private val ctx: Context,private var v8: V8){
+    private val mainHander = Handler(Looper.getMainLooper())
+    private val bootPath: String = "/data/data/" + ctx.packageName
+    val htmlPath: String = "$bootPath/html/vm"
+    private var mBootFilePaths: JSONObject? = null
+    private val mConfigPath: String = "$htmlPath/bootFilePaths.json"
+
+    init {
+        val context = FileUtil.readFile(mConfigPath)
+        try {
+            if(context == ""){
+                mBootFilePaths = JSONObject()
+            }else{
+                mBootFilePaths = JSONObject(context)
+            }
+        }catch (e: Exception){
+            e.printStackTrace()
+        }
+    }
 
     fun initManager(){
+        val getBootFiles = JavaVoidCallback { receiver, parameters ->
+            val result = JSONObject()
+            try {
+                val iterator = mBootFilePaths!!.keys()
+                while (iterator.hasNext()) {
+                    val key = iterator.next() as String
+                    val fullPath = mBootFilePaths!!.getString(key)
+                    result.put(key, Base64.encodeToString(FileUtil.readFileToData(fullPath), Base64.NO_WRAP))
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            val cb = (parameters.get(0) as V8Function).twin()
+            mainHander.post { val v8Array = V8Array(v8); v8Array.push(result.toString()); cb.call(null,v8Array); v8Array.close(); cb.close() }
+        }
+
+        val saveFile = JavaVoidCallback { receiver, parameters ->
+            var path = parameters.get(0) as String
+            val base64Str = parameters.get(1) as String
+            val cb = (parameters.get(2) as V8Function).twin()
+            try {
+                if (path.contains(".depend")) {
+                    path = path.replace(".depend", "depend")
+                }
+
+                val fullPath = "$htmlPath/$path"
+                val content = Base64.decode(base64Str, Base64.NO_WRAP)
+                FileUtil.writeFile(fullPath, content, false)
+
+                path = path.substring(path.lastIndexOf("/") + 1)
+                mBootFilePaths!!.put(path, fullPath)
+                FileUtil.writeFile(mConfigPath, mBootFilePaths!!.toString().toByteArray(Charsets.UTF_8),false)
+
+                Log.d("Intercept", "JSIntercept.saveFile: $fullPath")
+                mainHander.post { val v8Array = V8Array(v8); v8Array.push("SUCCESS"); cb.call(null,v8Array); v8Array.close(); cb.close() }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
 
         val restartJSVM = JavaVoidCallback { receiver, parameters ->
-            JSVMManager.get().restartJSVM()
+            mainHander.post {
+                JSVMManager.get().restartJSVM()
+            }
         }
+
 
         val jsvm = v8.getObject("JSVM")
         val boot = jsvm.getObject("Boot")
 
         boot.registerJavaMethod(restartJSVM,"restart")
+        boot.registerJavaMethod(getBootFiles,"getBootFiles")
+        boot.registerJavaMethod(saveFile,"saveFile")
 
         boot.close()
         jsvm.close()
     }
 
+
+
+
+}
+
+class FileUtil{
+    companion object {
+        fun readFile(path: String): String {
+            var content = ""
+            val file = File(path)
+            try {
+                val stream = FileInputStream(file)
+                val bs = ByteArray(stream.available())
+                stream.read(bs)
+                content = String(bs, Charsets.UTF_8)
+                stream.close()
+            } catch (e: Exception) {
+
+            }
+
+            return content
+        }
+
+        fun readFileToData(path: String): ByteArray? {
+            var bs: ByteArray? = null
+            val file = File(path)
+            try {
+                val stream = FileInputStream(file)
+                bs = ByteArray(stream.available())
+                stream.read(bs)
+                stream.close()
+            } catch (e: Exception) {
+
+            }
+
+            return bs
+        }
+
+        fun writeFile(path: String, content: ByteArray, append: Boolean?) {
+            val f = File(path)
+            try {
+                if (!f.exists()) {
+                    File(path.substring(0, path.lastIndexOf('/'))).mkdirs()
+                    f.createNewFile()
+                }
+                val stream = FileOutputStream(f, append!!)
+                stream.write(content)
+                stream.close()
+            } catch (e: Exception) {
+
+            }
+
+        }
+    }
 }

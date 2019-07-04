@@ -1243,11 +1243,7 @@ JNIEXPORT jlong JNICALL Java_com_yineng_piv8_V8__1registerJavaMethod(JNIEnv *env
     return md->methodID;
 }
 
-/*
- * Class:     com_yineng_piv8_V8
- * Method:    _initNewV8Array
- * Signature: (J)J
- */
+
 JNIEXPORT jlong JNICALL Java_com_yineng_piv8_V8__1initNewV8Array(JNIEnv *env, jobject, jlong v8RuntimePtr){
     Isolate* isolate = SETUP(env, v8RuntimePtr, 0);
     Local<Array> array = Array::New(isolate);

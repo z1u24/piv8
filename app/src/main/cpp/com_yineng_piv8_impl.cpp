@@ -300,7 +300,17 @@ bool invokeFunction(JNIEnv *env, Isolate* isolate, jlong &v8RuntimePtr, jlong &r
     Handle<Object> receiver = Local<Object>::New(isolate, *reinterpret_cast<Persistent<Object>*>(receiverHandle));
     Handle<Function> func = Handle<Function>::Cast(object);
     TryCatch tryCatch(isolate);
-    result = func->Call(isolate->GetCurrentContext(),receiver, size, args).ToLocalChecked();
+    MaybeLocal<Value> oldRes = func->Call(isolate->GetCurrentContext(),receiver, size, args);
+    if(oldRes.IsEmpty()){
+        if (tryCatch.HasCaught()) {
+            throwExecutionException(env, isolate, &tryCatch, v8RuntimePtr);
+        }
+        if (args != NULL) {
+            delete(args);
+        }
+        return false;
+    }
+    result = oldRes.ToLocalChecked();
     if (args != NULL) {
         delete(args);
     }
@@ -327,7 +337,17 @@ bool invokeFunction(JNIEnv *env, Isolate* isolate, jlong &v8RuntimePtr, jlong &o
     Handle<Value> value = parentObject->Get(functionName);
     Handle<Function> func = Handle<Function>::Cast(value);
     TryCatch tryCatch(isolate);
-    result = func->Call(isolate->GetCurrentContext(),parentObject, size, args).ToLocalChecked();
+    MaybeLocal<Value> oldRes = func->Call(isolate->GetCurrentContext(),parentObject, size, args);
+    if(oldRes.IsEmpty()){
+        if (tryCatch.HasCaught()) {
+            throwExecutionException(env, isolate, &tryCatch, v8RuntimePtr);
+        }
+        if (args != NULL) {
+            delete(args);
+        }
+        return false;
+    }
+    result = oldRes.ToLocalChecked();
     if (args != NULL) {
         delete(args);
     }
@@ -1857,14 +1877,9 @@ void throwResultUndefinedException(JNIEnv *env, const char *message) {
 
 void throwParseException(JNIEnv *env, const char* fileName, int lineNumber, String::Value *message,
                          String::Value *sourceLine, int startColumn, int endColumn) {
-    jstring jfileName = env->NewStringUTF(fileName);
     jstring jmessage = env->NewString(**message, message->length());
-    jstring jsourceLine = env->NewString(**sourceLine, sourceLine->length());
-    jthrowable result = (jthrowable)env->NewObject(v8ScriptCompilationCls, v8ScriptCompilationInitMethodID, jfileName, lineNumber, jmessage, jsourceLine, startColumn, endColumn);
-    env->DeleteLocalRef(jfileName);
+    LOGV("throw js exception:  throwParseException ==== file = %s, line = %d, message = %s", fileName, lineNumber, util::jstring2string(env, jmessage).c_str());
     env->DeleteLocalRef(jmessage);
-    env->DeleteLocalRef(jsourceLine);
-    (env)->Throw(result);
 }
 
 void throwExecutionException(JNIEnv *env, const char* fileName, int lineNumber, String::Value *message,
@@ -1876,24 +1891,13 @@ void throwExecutionException(JNIEnv *env, const char* fileName, int lineNumber, 
     if (stackTrace != NULL) {
         jstackTrace = env->NewStringUTF(stackTrace);
     }
-    jthrowable wrappedException = NULL;
-    if (env->ExceptionCheck()) {
-        wrappedException = env->ExceptionOccurred();
-        env->ExceptionClear();
-    }
     if (reinterpret_cast<V8Runtime*>(v8RuntimePtr)->pendingException != NULL) {
-        wrappedException = reinterpret_cast<V8Runtime*>(v8RuntimePtr)->pendingException;
         reinterpret_cast<V8Runtime*>(v8RuntimePtr)->pendingException = NULL;
     }
-    if ( wrappedException != NULL && !env->IsInstanceOf( wrappedException, throwableCls) ) {
-        std::cout << "Wrapped Exception is not a Throwable" << std::endl;
-        wrappedException = NULL;
-    }
-    jthrowable result = (jthrowable)env->NewObject(v8ScriptExecutionException, v8ScriptExecutionExceptionInitMethodID, jfileName, lineNumber, jmessage, jsourceLine, startColumn, endColumn, jstackTrace, wrappedException);
+    LOGV("throw js exception: throwExecutionException fileName = %s, line = %d, message = %s sourceLine = %s startColumn = %d endColumn = %d stackTrace = %s", fileName, lineNumber, util::jstring2string(env,jmessage).c_str(), util::jstring2string(env,jsourceLine).c_str(),startColumn, endColumn,stackTrace);
     env->DeleteLocalRef(jfileName);
     env->DeleteLocalRef(jmessage);
     env->DeleteLocalRef(jsourceLine);
-    (env)->Throw(result);
 }
 
 void throwParseException(JNIEnv *env, Isolate* isolate, TryCatch* tryCatch) {

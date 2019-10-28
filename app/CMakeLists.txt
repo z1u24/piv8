@@ -118,11 +118,7 @@ target_link_libraries(native-lib ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_
 target_link_libraries(native-lib ${PROJECT_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libc++.a)
 target_link_libraries(native-lib ${PROJECT_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libc++abi.a)
 
-if("${ANDROID_ABI}" MATCHES "armeabi-v7a" OR "${ANDROID_ABI}" MATCHES "x86")
-    # On API Level 19 and lower we need to link with android_support
-    # because it contains some implementation of functions such as "strtoll" and "strtoul"
-    target_link_libraries(native-lib ${ANDROID_NDK_ROOT}/sources/cxx-stl/llvm-libc++/libs/${ANDROID_ABI}/libandroid_support.a)
-endif()
+
 
 target_link_libraries( # Specifies the target library.
         native-lib
